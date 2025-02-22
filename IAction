@@ -1,0 +1,7 @@
+namespace ActionSystem
+{
+    public interface IAction
+    {
+        void Execute(Character character);
+    }
+}
