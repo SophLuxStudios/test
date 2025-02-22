@@ -1,0 +1,186 @@
+using System.Collections.Generic;
+using UnityEngine;
+using ActionSystem;
+using GridSystem;
+using UnityEngine.UI;
+using TMPro;
+
+public class TeamManager : MonoBehaviour
+{
+    //used classes
+    private PathfindingManager _pathfindingManager => PathfindingManager.Instance;
+
+    //private fields
+    [SerializeField] private Team _team;
+    //[SerializeField] private Character[] _teamPlayers;
+    [SerializeField] private Ball _ball;
+    private Vector3Int _teamGoal;
+    private Vector3Int _oppositionGoal;
+
+    // Team properties
+    [SerializeField] private bool _isHomeTeam; // Set this in the Inspector for each TeamManager
+    [SerializeField] private Color _teamColor; // Set this in the Inspector for each TeamManager
+
+
+    //UI
+    [SerializeField] private Slider _characterSpeedSlider;
+    [SerializeField] private TMP_Text _characterSpeedText;
+
+    void Awake()
+    {
+        InitializeTeam(_isHomeTeam, _teamColor);
+    }
+
+    // Initialize the team
+    public void InitializeTeam(bool isHomeTeam, Color teamColor)
+    {
+        _team = new Team(isHomeTeam, teamColor);
+    }
+
+    // Add a player to the team
+    public void AddPlayerToTeam(Character character)
+    {
+        if (_team != null && character != null)
+        {
+            character.SetTeamManager(this);
+            _team.AddPlayer(character);
+            SetTeamSpeed();
+        }
+        else
+        {
+            Debug.LogError("Team or character is null!");
+        }
+    }
+
+    public void MoveCharacter(Character character)
+    {
+        if(character == null)
+        {
+            Debug.LogError("Character to move is null!");
+            return;
+        }
+        
+        // Stop movement before starting anew if the character is already moving
+        if(character.IsMoving)
+        {
+            StopAction stopAction = new();
+            character.PerformAction(stopAction);
+        }
+
+        // Create a MoveAction and execute it
+        MoveAction moveAction = new(FindPathForCharacter(character));
+        character.PerformAction(moveAction);
+    }
+
+    private List<Vector3Int> FindPathForCharacter(Character character)
+    {
+        // Check if team array is properly initialized
+        if(character == null)
+        {
+            Debug.LogError("Team array is not properly initialized!");
+            return null;
+        }
+
+        // Check if ball reference is assigned
+        if(_ball == null)
+        {
+            Debug.LogError("Ball reference is not assigned!");
+            return null;
+        }
+
+        // Get start and goal positions
+        Vector3Int start = _team.Players[0].GetCurrentPosition();
+        Vector3Int goal = GetBallPosition();
+
+        Debug.Log($"Start: {start}, Goal: {goal}");
+
+        List<Vector3Int> path = _pathfindingManager.FindPath(start, goal);
+
+        return path;
+    }
+
+    public void MoveSpecificCharacter(int playerIndex)
+    {
+        if(playerIndex < 0 || playerIndex >= _team.Players.Count)
+        {
+            Debug.LogError($"Invalid player index: {playerIndex}");
+            return;
+        }
+
+        Character player = _team.Players[playerIndex];
+        MoveCharacter(player);
+    }
+
+    public void MoveAllCharacters()
+    {
+        foreach(Character player in _team.Players)
+        {
+            MoveCharacter(player);
+        }
+    }
+
+    public void MoveClosestCharacterToBall()
+    {
+        if(_ball == null)
+        {
+            Debug.LogError("Ball reference is not assigned!");
+            return;
+        }
+
+        // Find the player closest to the ball
+        Character closestPlayer = null;
+        float closestDistance = float.MaxValue;
+        Vector3 ballPosition = _ball.transform.position;
+
+        foreach(Character player in _team.Players)
+        {
+            float distance = Vector3.Distance(player.transform.position, ballPosition);
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestPlayer = player;
+            }
+        }
+
+        MoveCharacter(closestPlayer);
+    }
+
+    private Vector3Int GetBallPosition()
+    {
+        return _ball.GetBallPosition();
+    }
+
+    public Color GetTeamColor()
+    {
+        return _teamColor;
+    }
+
+    public bool IsBallInPosession()
+    {
+        return _ball.IsPossessed;
+    }
+
+    public void SetBallAsIsPossessed(bool isPossessed, Character character)
+    {
+        _ball.SetIsPossessed(isPossessed, character);
+    }
+
+    public void SetIndividualSpeed(Character character)
+    {
+        float speed = _characterSpeedSlider.value * 0.5f;
+
+        _characterSpeedText.text = $"Speed: {speed:F1}";
+
+        //character.TeamSpeedMultiplier = speed;
+    }
+
+    public void SetTeamSpeed()
+    {
+        float speed = _characterSpeedSlider.value * 0.5f;
+
+        foreach(Character character in _team.Players)
+        {
+            character.TeamSpeedMultiplier = speed;
+        }
+    }
+}
