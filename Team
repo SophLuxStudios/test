@@ -1,0 +1,35 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+[System.Serializable]
+public class Team
+{
+    public bool TeamSide; // true if HomeTeam, false if AwayTeam
+    public Color TeamColor; // For uniforms or UI
+    public List<Character> Players = new List<Character>();
+
+    // Constructor to initialize the team
+    public Team(bool side, Color color)
+    {
+        TeamSide = side;
+        TeamColor = color;
+    }
+
+    // Add a player to the team
+    public void AddPlayer(Character character)
+    {
+        if (character != null && !Players.Contains(character))
+        {
+            Players.Add(character);
+        }
+    }
+
+    // Remove a player from the team
+    public void RemovePlayer(Character player)
+    {
+        if (Players.Contains(player))
+        {
+            Players.Remove(player);
+        }
+    }
+}
