@@ -1,0 +1,126 @@
+using UnityEngine;
+using ActionSystem;
+using GridSystem;
+
+public class Character : MonoBehaviour
+{
+    //used classes
+    private GridManager _gridManager => GridManager.Instance;
+    private TeamManager _teamManager;
+
+    //public variables
+    public bool IsMoving { get; private set; }
+    public bool HasBall { get; private set; }
+    public bool FacingDirection; // if right true, if left false
+    public float TeamSpeedMultiplier; // For TEST purposes
+    public Vector3 BallPositionThreshold = new(0.2f, -0.15f, 0);
+
+    //private fields
+    [SerializeField] private CharacterDataSO _characterDataSO;
+    private Vector3Int _currentTilePosition;
+    private const float _speedMultiplyer = 1f;
+    private const float _positionThresholdY = 0.4f;
+    private Vector3 _positionThreshold = new(0, _positionThresholdY, 0);
+    private SpriteRenderer _spriteRenderer;
+    private Animator _animator;    
+
+    void Start()
+    {
+        #if EDITOR
+        if(_gridManager == null)
+        {
+            Debug.LogError("GridManager instance is null.");
+            return;
+        }
+        #endif
+
+        SetTileAsOccupation(true);
+    }
+
+    // Initialize the character with CharacterDataSO
+    public void Initialize(CharacterDataSO data, SpriteRenderer spriteRenderer, Animator animator)
+    {
+        _spriteRenderer = spriteRenderer;
+        FacingDirection = _spriteRenderer.flipX;
+
+        _animator = animator;
+
+        _characterDataSO = data;
+        Debug.Log($"Character initialized with Position: {data.FootballerPosition}, Perk: {data.FootballerPerk}, Quality: {data.FootballerQuality}");
+
+        // Optionally, update the character's appearance or behavior based on the data
+        /*if (_spriteRenderer != null)
+        {
+            _spriteRenderer.sprite = /* Assign a sprite based on the CharacterDataSO * ;
+        }*/
+    }
+
+    public void PerformAction(IAction action)
+    {
+        action.Execute(this);
+    }
+
+    public void SetIsMoving(bool isMoving)
+    {
+        IsMoving = isMoving;
+        _animator.SetBool("IsMoving", isMoving);
+    }
+
+    public Vector3 GetBallInPossession()
+    {
+        Vector3 ballPossessionThreshold = BallPositionThreshold;
+
+        if(!FacingDirection)
+            ballPossessionThreshold.x *= -1;
+
+        return ballPossessionThreshold;
+    }
+
+    public float GetSpeed()
+    {
+        Debug.Log($"{gameObject.name} speed: {_speedMultiplyer * _characterDataSO.BaseSpeed * TeamSpeedMultiplier}\nMovementSpeed: {TeamSpeedMultiplier}");
+        return _speedMultiplyer * _characterDataSO.BaseSpeed * TeamSpeedMultiplier;
+    }
+
+    public void SetTeamManager(TeamManager teamManager)
+    {
+        _teamManager = teamManager;
+    }
+    
+    public Vector3 GetPositionThreshold()
+    {
+        return _positionThreshold;
+    }
+
+    public Vector3 GetBallPossessionThreshold()
+    {
+        return _positionThreshold;
+    }
+
+    public Vector3Int GetCurrentPosition()
+    {
+        _currentTilePosition = _gridManager.WorldToCell(transform.position);
+        //Debug.Log($"Character is located at: {currentPosition}");
+        return _currentTilePosition;
+    }
+
+    public void Flip()
+    {        
+        FacingDirection = !FacingDirection;
+        _spriteRenderer.flipX = FacingDirection;
+    }
+
+    public void ControlBall()
+    {
+        if(!_teamManager.IsBallInPosession())
+        {
+            Debug.Log($"{gameObject.name} is in possession of the ball.");
+            _teamManager.SetBallAsIsPossessed(true, this);
+        }
+    }
+
+    private void SetTileAsOccupation(bool isOccupied)
+    {
+        _gridManager.SetOccupied(GetCurrentPosition(), this, isOccupied);
+    }
+}
