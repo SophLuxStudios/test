@@ -1,0 +1,67 @@
+using System.Collections;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+public class DragAndDrop : MonoBehaviour
+{
+    //private fields
+    [SerializeField] private InputAction _mouseClick;
+    private Camera _mainCamera => Camera.main;
+    private const float _mouseDragSpeed = 0.05f;
+    private Vector3 _velocity = Vector3.zero;
+
+    private void OnEnable()
+    {
+        _mouseClick.Enable();
+        _mouseClick.performed += MousePressed;
+    }
+
+    private void OnDisable()
+    {
+        _mouseClick.performed -= MousePressed;
+        _mouseClick.Disable();
+    }
+
+    private void MousePressed(InputAction.CallbackContext context)
+    {
+        Ray ray = _mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+
+        RaycastHit2D hit = Physics2D.GetRayIntersection(ray);
+
+        if(hit.collider != null && hit.collider.GetComponent<IDrag>() != null)
+        {
+            StartCoroutine(DragUpdate(hit.collider.gameObject));
+        }
+    }
+
+    private IEnumerator DragUpdate(GameObject clickedObject)
+    {
+        clickedObject.TryGetComponent<IDrag>(out var iDrag);
+
+        iDrag?.OnStartDrag();
+
+        // Cache the Mouse object for better readability
+        var mouse = Mouse.current;
+
+        // Cache the object's initial Z position
+        float objectZ = clickedObject.transform.position.z;
+
+        while(_mouseClick.ReadValue<float>() != 0)
+        {
+            // Convert mouse position to world coordinates
+            var mousePosition = mouse.position.ReadValue();
+            var worldPosition = _mainCamera.ScreenToWorldPoint(new Vector3(mousePosition.x, mousePosition.y, _mainCamera.nearClipPlane));
+
+            // Preserve object z position
+            worldPosition.z = objectZ;
+
+            // Smoothly move the object to the mouse position
+            clickedObject.transform.position = Vector3.SmoothDamp(clickedObject.transform.position,
+            worldPosition, ref _velocity, _mouseDragSpeed);
+
+            yield return null;
+        }
+
+        iDrag?.OnEndDrag();
+    }
+}
