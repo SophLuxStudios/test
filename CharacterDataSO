@@ -1,0 +1,66 @@
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "NewCharacterDataSO", menuName = "Assets/SO/CharacterData")]
+public class CharacterDataSO : ScriptableObject
+{
+    public float BaseSpeed => _qualityMultiplier * (FootballerPerk == FootballerPerk.Fast ? 1.5f : 1);
+    //public float SpeedMultiplier = 1f;
+    public float BaseStrength => _qualityMultiplier * (FootballerPerk == FootballerPerk.Strong ? 1.5f : 1);
+    //public float StrengthMultiplier = 1f;
+    public float BaseIntelligence => _qualityMultiplier * (FootballerPerk == FootballerPerk.Intelligent ? 1.5f : 1);
+    //public float IntelligenceMultiplier = 1f;
+    public float BaseTackling => _qualityMultiplier * (FootballerPosition == FootballerPosition.Defender ? 1.5f : 1);
+    public float BaseMarking => _qualityMultiplier * (FootballerPosition == FootballerPosition.Defender ? 1.5f : 1);
+    public float BaseBallControl => _qualityMultiplier * (FootballerPosition == FootballerPosition.Midfielder ? 1.5f : 1);
+    public float BasePassing => _qualityMultiplier * (FootballerPosition == FootballerPosition.Midfielder ? 1.5f : 1);
+    public float BaseShooting => _qualityMultiplier * (FootballerPosition == FootballerPosition.Forward ? 1.5f : 1);
+    public float BaseDribbling => _qualityMultiplier * (FootballerPosition == FootballerPosition.Forward ? 1.5f : 1);
+    public FootballerPosition FootballerPosition;
+    public FootballerPerk FootballerPerk;
+    public FootballerQuality FootballerQuality;
+
+    private float _qualityMultiplier => FootballerQuality switch
+    {
+        FootballerQuality.Bad => 0.7f,
+        FootballerQuality.Mediocare => 0.85f,
+        FootballerQuality.Decent => 0.1f,
+        FootballerQuality.Good => 1.15f,
+        FootballerQuality.WorldClass => 1.3f,
+        _ => 1f,
+    };
+
+    public static CharacterDataSO Create(FootballerPosition position, FootballerPerk perk, FootballerQuality quality)
+    {
+        CharacterDataSO data = ScriptableObject.CreateInstance<CharacterDataSO>();
+        data.FootballerPosition = position;
+        data.FootballerPerk = perk;
+        data.FootballerQuality = quality;
+        return data;
+    }
+}
+
+[System.Serializable]
+public enum FootballerPosition
+{
+    Defender,
+    Midfielder,
+    Forward
+}
+
+[System.Serializable]
+public enum FootballerPerk
+{
+    Strong,
+    Fast,
+    Intelligent
+}
+
+[System.Serializable]
+public enum FootballerQuality
+{
+    Bad,
+    Mediocare,
+    Decent,
+    Good,
+    WorldClass
+}
