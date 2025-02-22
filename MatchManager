@@ -1,0 +1,62 @@
+using UnityEngine;
+
+public class MatchManager : MonoBehaviour
+{
+    //Singleton
+    public static MatchManager Instance;
+
+    //public variables
+    public Team HomeTeam;
+    public Team AwayTeam;
+    public int HomeScore { get; private set; }
+    public int AwayScore { get; private set; }
+    public bool IsMatchActive { get; private set; }
+
+    //private fields
+    [SerializeField] private Ball _ball;
+
+    // If more than 2 teams needed
+    //[SerializeField] private TeamManager[] _teams = new TeamManager[_numberOfTeams];
+    //private const int _numberOfTeams = 2;
+
+    void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
+    }
+
+    public void StartMatch(Team homeTeam, Team awayTeam)
+    {
+        HomeTeam = homeTeam;
+        AwayTeam = awayTeam;
+        HomeScore = 0;
+        AwayScore = 0;
+        IsMatchActive = true;
+
+        Debug.Log("Match started: HomeTeam vs AwayTeam");
+    }
+
+    // End the match
+    public void EndMatch()
+    {
+        IsMatchActive = false;
+        Debug.Log($"Match ended. Final score: HomeTeam {HomeScore} - {AwayScore} AwayTeam");
+    }
+
+    // Update the score
+    public void UpdateScore(Team scoringTeam, int points = 1)
+    {
+        if(scoringTeam == HomeTeam)
+        {
+            HomeScore += points;
+        }
+        else if(scoringTeam == AwayTeam)
+        {
+            AwayScore += points;
+        }
+
+        Debug.Log($"Score updated: HomeTeam {HomeScore} - {AwayScore} AwayTeam");
+    }
+}
