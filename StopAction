@@ -1,0 +1,26 @@
+using DG.Tweening;
+using UnityEngine;
+
+namespace ActionSystem
+{
+    public class StopAction : IAction
+    {
+        public void Execute(Character character)
+        {
+            if (character == null)
+            {
+                Debug.LogError("Character is null.");
+                return;
+            }
+
+            // Stop any ongoing tweens (e.g., movement)
+            DOTween.Kill(character.transform);
+
+            // Add logic to stop other actions (e.g., attack, interact)
+            Debug.Log($"{character.name} has stopped all actions.");
+
+            // Update character state
+            character.SetIsMoving(false);
+        }
+    }
+}
