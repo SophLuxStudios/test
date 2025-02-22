@@ -1,0 +1,125 @@
+using System.Collections.Generic;
+using DG.Tweening;
+using UnityEngine;
+using GridSystem;
+
+namespace ActionSystem
+{
+    public class MoveAction : IAction
+    {
+        //used classes
+        private GridManager _gridManager => GridManager.Instance;
+
+        //public variables
+        public const float DefaultMovementSpeed = 2f;
+        
+        //private fields
+        private List<Vector3Int> _path;
+        private const float _zAngle = 5;
+        
+        public MoveAction(List<Vector3Int> path)
+        {
+            _path = path;
+        }
+
+        public void Execute(Character character)
+        {
+            if(character == null)
+            {
+                Debug.LogError("Character is null.");
+                return;
+            }
+
+            if(_path == null || _path.Count == 0)
+            {
+                Debug.LogWarning("Path is null or empty.");
+                return;
+            }
+
+            // Convert path to world positions
+            List<Vector3> worldPath = new();
+            foreach(var targetPosition in _path)
+            {
+                Vector3 targetWorldPosition = _gridManager.GetCellCenterWorld(targetPosition);
+                targetWorldPosition += character.GetPositionThreshold();
+                worldPath.Add(targetWorldPosition);
+            }
+
+            // Set the character as moving
+            character.SetIsMoving(true);
+
+            // Sequence the movements
+            var sequence = DOTween.Sequence();
+
+            // Calculate duration for character
+            float duration = 1 / (character.GetSpeed() != 0 ? character.GetSpeed() : DefaultMovementSpeed);
+
+            /*
+                // Update the grid occupancy
+                gridManager.SetOccupied(character.GetCurrentPosition(), character, false); // Free the current tile
+                gridManager.SetOccupied(targetPosition, character, true); // Occupy the new tile
+            */
+
+            bool isFacingRight = character.FacingDirection;
+
+            for(int i = 0; i < _path.Count -1; i++)
+            {
+                Vector3 currentPosition = worldPath[i];
+                Vector3 nextPosition = worldPath[i + 1];
+
+                //Append move
+                sequence.Append(character.transform.DOMove(nextPosition, duration).SetEase(Ease.Linear));
+
+                if(nextPosition.x < currentPosition.x && isFacingRight || nextPosition.x > currentPosition.x && !isFacingRight)
+                {
+                    sequence.JoinCallback(() => character.Flip());
+
+                    isFacingRight = !isFacingRight;
+                    //Debug.Log($"Flipped to {isFacingRight}. {i}");
+                }
+
+                if(nextPosition.y != currentPosition.y)
+                {
+                    // Subtract next position.y from the current one y to find out the vertical direction
+                    float Y = nextPosition.y - currentPosition.y;
+
+                    sequence.Join(CharacterRotation(character, isFacingRight, Y, duration));
+                }
+            }
+
+            // Callback when the sequence completes
+            sequence.OnComplete(() => SequenceCompleted(character));
+
+            // Play the sequence
+            sequence.Play();
+        }
+
+        private Tween CharacterRotation(Character character, bool isFacingRight, float Y, float duration)
+        {
+            // if the character is going up; Facing right: positive angle. Facing left: negative angle.
+            Vector3 temp = isFacingRight ? new Vector3(0, 0, _zAngle) : new Vector3(0, 0, -_zAngle);
+
+            // if the character is going down; Facing right: negative angle. Facing left: positive angle.
+            if(Y < 0) temp = new Vector3(0, 0, temp.z * -1);
+
+            return character.transform.DORotate(temp, duration);
+        }
+
+        private void SequenceCompleted(Character character)
+        {
+            character.SetIsMoving(false);
+            character.transform.DORotate(Vector3.zero, 0.2f);
+            
+            //Set the destination goal tile as occupied and the starting tile as unoccupied
+            SetTileOccupation(character, _path[0], false);
+            SetTileOccupation(character, _path[^1], true);
+
+            character.ControlBall();
+        }
+
+        private void SetTileOccupation(Character character, Vector3Int position, bool isOccupied)
+        {
+            _gridManager.SetOccupied(position, character, isOccupied);
+        }
+    }
+}
