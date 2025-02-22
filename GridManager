@@ -1,0 +1,162 @@
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using UnityEngine.Tilemaps;
+
+namespace GridSystem
+{
+    public class GridManager : MonoBehaviour
+    {
+        //Singleton
+        public static GridManager Instance { get; private set; }
+
+        //private fields
+        [SerializeField] private Tilemap _tilemap;
+        [SerializeField] private List<TileDataSO> _tileDataList;
+        private readonly Dictionary<Vector3Int, TileDataSO> _grid = new();
+        private readonly Dictionary<Vector3Int, List<Vector3Int>> _neighborCache = new();
+        private readonly Dictionary<TileBase, TileDataSO> _tileDataLookup = new();
+        private readonly Dictionary<Vector3Int, Character> _occupiedTiles = new();
+
+        void Awake()
+        {
+            // Singleton
+            if(Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+
+            InitializeGrid();
+        }
+
+        #if UNITY_EDITOR
+        void Update()
+        {
+            if(Input.GetMouseButtonDown(0))
+            {
+                Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+
+                Vector3Int gridPosition = _tilemap.WorldToCell(mousePosition);
+
+                if(_grid.ContainsKey(gridPosition))
+                {
+                    TileDataSO clickedTileData = _grid[gridPosition];
+                    
+                    Debug.Log($"Clicked on {clickedTileData.Type} type tile at position {gridPosition}.");
+                    Debug.Log($"{(_occupiedTiles.ContainsKey(gridPosition) ? "OCCUPIED." : "UNOCCUPIED.")}");
+                }
+            }
+        }
+        #endif
+        
+        private void InitializeGrid()
+        {
+            // Build TileBase-to-TileDataSO lookup
+            foreach(TileDataSO tileData in _tileDataList)
+            {
+                if(tileData.Tile != null)
+                {
+                    _tileDataLookup[tileData.Tile] = tileData;
+                }
+            }
+
+            // Assign tiles to grid
+            BoundsInt bounds = _tilemap.cellBounds;
+            foreach(var position in bounds.allPositionsWithin)
+            {
+                TileBase tile = _tilemap.GetTile(position);
+                if(tile != null && _tileDataLookup.TryGetValue(tile, out TileDataSO tileData))
+                {
+                    _grid[position] = tileData;
+                    //Debug.Log($"Added tile at {position} to grid.");
+                    //neighborCache[position] = CalculateNeighbors(position);
+                }
+            }
+
+            // Pre-assign neighbors for each tile
+            foreach(var position in _grid.Keys)
+            {
+                _neighborCache[position] = CalculateNeighbors(position);
+            }
+        }
+
+        private List<Vector3Int> CalculateNeighbors(Vector3Int position)
+        {
+            // Determine if the row is even or odd
+            bool isEvenRow = position.y % 2 == 0;
+
+            List<Vector3Int> neighbors = new()
+            {
+                
+                position + new Vector3Int(1, 0, 0),  // Right
+                position + new Vector3Int(-1, 0, 0), // Left
+                position + new Vector3Int(0, 1, 0),  // Up-Right
+                position + new Vector3Int(0, -1, 0), // Down-Right
+                position + (isEvenRow ? new Vector3Int(-1, -1, 0) : new Vector3Int(1, -1, 0)), // Down-Left
+                position + (isEvenRow ? new Vector3Int(-1, 1, 0) : new Vector3Int(1, 1, 0)), // Up-Left
+                //position + new Vector3Int(-1, 1, 0)  // Up-Left
+            };        
+
+            // Filter neighbors to only include valid grid positions
+            neighbors.RemoveAll(neighbor => !_grid.ContainsKey(neighbor));
+            return neighbors;
+        }
+
+        // Check if a tile is walkable (considers both static data and dynamic occupation)
+        public bool IsTileWalkable(Vector3Int position)
+        {
+            if (!_grid.TryGetValue(position, out TileDataSO tileData))
+            {
+                Debug.LogWarning($"Tile at {position} is out of bounds or has no TileDataSO.");
+                return false;
+            }
+
+            bool isOccupied = _occupiedTiles.ContainsKey(position);
+
+            /*// Debug occupied tiles
+            if(isOccupied)
+                Debug.Log($"Tile at {position} is occupied by a character.");
+            */
+
+            //Debug.Log($"Tile at {position} is walkable: {tileData.IsWalkable}");
+            return tileData.IsWalkable && !isOccupied;
+        }
+
+
+        // Track characters on tiles
+        public void SetOccupied(Vector3Int coords, Character character, bool isOccupied)
+        {
+            if(isOccupied)
+                _occupiedTiles[coords] = character;
+            else
+                _occupiedTiles.Remove(coords);
+        }
+
+        public List<Vector3Int> GetNeighbors(Vector3Int tileCoordinates)
+        {
+            return _neighborCache.TryGetValue(tileCoordinates, out List<Vector3Int> neighbors) ? neighbors : new List<Vector3Int>();
+        }
+
+        public TileDataSO GetTileDataByPosition(Vector3Int tileCoordinates)
+        {
+            return _grid.TryGetValue(tileCoordinates, out TileDataSO tileData) ? tileData : null;
+        }
+
+        public Vector3Int WorldToCell(Vector3 worldPos) => _tilemap.WorldToCell(worldPos);
+        public Vector3 GetCellCenterWorld(Vector3Int cellPos) => _tilemap.GetCellCenterWorld(cellPos);
+
+        public Vector3 GetRandomEmptyTile()
+        {
+            Vector3Int randomKey;
+
+            do
+            {
+                randomKey = _grid.Keys.ElementAt(Random.Range(0, _grid.Keys.Count - 1));
+            } while (_occupiedTiles.ContainsKey(randomKey) && !_grid[randomKey].IsWalkable);
+
+            return GetCellCenterWorld(randomKey);
+        }
+    }
+}
