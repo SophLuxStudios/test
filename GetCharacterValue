@@ -1,0 +1,119 @@
+using TMPro;
+using UnityEngine;
+
+public class GetCharacterValue : MonoBehaviour
+{
+    //used classes
+    private TeamManager _teamManager;
+
+    //private fields
+    [SerializeField] private TMP_Dropdown _positionDropdown;
+    [SerializeField] private TMP_Dropdown _perkDropdown;
+    [SerializeField] private TMP_Dropdown _qualityDropdown;
+    [SerializeField] private GameObject _characterCreationMenu;
+    //[SerializeField] private GameObject _characterPrefab; // Prefab for the Character GameObject
+    //[SerializeField] private Transform _spawnPosition;   // Where to spawn the character
+
+    [SerializeField] private Sprite _sprite;
+    [SerializeField] private RuntimeAnimatorController _runtimeAnimatorController;
+
+    FootballerPosition _footballerPosition;
+    FootballerPerk _footballerPerk;
+    FootballerQuality _footballerQuality;
+
+    void Awake()
+    {
+        _teamManager = GetComponent<TeamManager>();
+        
+        SetDropdownOptions();
+    }
+
+    public void CreateCharacter(bool isHomeTeam)
+    {
+        // Get the selected values from the dropdowns
+        GetPositionDropdownValue();
+        GetPerkDropdownValue();
+        GetQualityDropdownValue();
+
+        // Create a new CharacterDataSO with the selected values
+        CharacterDataSO characterData = CharacterDataSO.Create(_footballerPosition, _footballerPerk, _footballerQuality);
+
+        // Create a new GameObject for the character
+        GameObject characterObject = isHomeTeam ? new("HomeTeamPlayer") : new("AwayTeamPlayer"); // Name it as needed
+        characterObject.transform.position = isHomeTeam ? new Vector3(-2, 0.4f, 0) : new Vector3(2, 0.4f, 0);
+        characterObject.transform.SetParent(transform);
+
+        // Add the Character script to the GameObject
+        Character characterComponent = characterObject.AddComponent<Character>();
+
+        // Optionally, add other components
+        SpriteRenderer spriteRenderer = characterObject.AddComponent<SpriteRenderer>();
+        Animator animator = characterObject.AddComponent<Animator>();
+
+        // Set up the character's appearance
+        spriteRenderer.sortingOrder = 5;
+        spriteRenderer.flipX = isHomeTeam;
+        spriteRenderer.sprite = _sprite;
+        spriteRenderer.color = _teamManager.GetTeamColor();
+
+        //_runtimeAnimatorController = (RuntimeAnimatorController)Resources.Load("Assets/Resources/Animation/Player_Animatior.controller", typeof(RuntimeAnimatorController ));
+        animator.runtimeAnimatorController = _runtimeAnimatorController;
+
+        // Initialize the Character with the CharacterDataSO
+        characterComponent.Initialize(characterData, spriteRenderer, animator);
+
+        // Add to teamManager
+        _teamManager.AddPlayerToTeam(characterComponent);
+
+        Debug.Log($"Character created: {characterObject.name}");
+
+        _characterCreationMenu.SetActive(false);
+    }
+
+
+    public void GetPositionDropdownValue()
+    {
+        string selectedOption = _positionDropdown.options[_positionDropdown.value].text;
+
+        if(System.Enum.TryParse(selectedOption, out FootballerPosition enumValue))
+            _footballerPosition = enumValue;
+    }
+
+    public void GetPerkDropdownValue()
+    {
+        string selectedOption = _perkDropdown.options[_perkDropdown.value].text;
+
+        if(System.Enum.TryParse(selectedOption, out FootballerPerk enumValue))
+            _footballerPerk = enumValue;
+    }
+
+    public void GetQualityDropdownValue()
+    {
+        string selectedOption = _qualityDropdown.options[_qualityDropdown.value].text;
+
+        if(System.Enum.TryParse<FootballerQuality>(selectedOption, out FootballerQuality enumValue))
+            _footballerQuality = enumValue;
+    }
+
+    private void SetDropdownOptions()
+    {
+        for(int i = 0; i < System.Enum.GetValues(typeof(FootballerPosition)).Length ; i++)
+        {
+            _positionDropdown.options.Add(item: new TMP_Dropdown.OptionData(text: System.Enum.GetName(typeof(FootballerPosition), i), image: null, color: Color.white));
+        }
+
+        for(int i = 0; i < System.Enum.GetValues(typeof(FootballerPerk)).Length ; i++)
+        {
+            _perkDropdown.options.Add(item: new TMP_Dropdown.OptionData(text: System.Enum.GetName(typeof(FootballerPerk), i), image: null, color: Color.white));
+        }
+
+        for(int i = 0; i < System.Enum.GetValues(typeof(FootballerQuality)).Length ; i++)
+        {
+            _qualityDropdown.options.Add(item: new TMP_Dropdown.OptionData(text: System.Enum.GetName(typeof(FootballerQuality), i), image: null, color: Color.white));
+        }
+
+        _positionDropdown.RefreshShownValue();
+        _perkDropdown.RefreshShownValue();
+        _qualityDropdown.RefreshShownValue();
+    }
+}
