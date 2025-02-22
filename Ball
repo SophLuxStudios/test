@@ -1,0 +1,90 @@
+using UnityEngine;
+using GridSystem;
+using UnityEngine.UI;
+
+public class Ball : MonoBehaviour, IDrag
+{
+    //used classes
+    private GridManager _gridManager => GridManager.Instance;
+
+    //public variables
+    public bool IsPossessed { get; private set; }
+    public bool CharacterInPossession { get; private set; }
+
+    //private fields
+    [SerializeField] TeamManager _homeTeamManager;
+    [SerializeField] TeamManager _awayTeamManager;
+    [SerializeField] private bool _isAutoPress;
+    
+    //UI
+    [SerializeField] private Toggle _autoPressToggle;
+
+    void Start()
+    {
+        _isAutoPress = _autoPressToggle.isOn;
+        //Add listener for when the state of the Toggle changes, to take action
+        _autoPressToggle.onValueChanged.AddListener(delegate {
+            ToggleValueChanged(_autoPressToggle);
+        });
+    }
+
+    public void SetIsPossessed(bool isPossessed, Character character)
+    {
+        IsPossessed = isPossessed;
+        CharacterInPossession = character;
+        
+        if(character != null)
+        {
+            transform.parent = character.transform;
+            transform.position += character.GetBallInPossession();
+        }
+        else
+        {
+            transform.parent = null;
+            transform.position = GetBallPosition();
+        }
+    }
+
+    public Vector3Int GetBallPosition()
+    {
+        return _gridManager.WorldToCell(transform.position);
+    }
+
+    public void RelocateBall()
+    {
+        SetIsPossessed(false, null);
+        Vector3 newPos = _gridManager.GetRandomEmptyTile();
+        Debug.Log($"Ball relocated at {newPos}");
+        transform.position = newPos;
+
+        if(_isAutoPress)
+            ChaseBall();
+    }
+
+    private void ChaseBall()
+    {
+        _homeTeamManager.MoveAllCharacters();
+        _awayTeamManager.MoveAllCharacters();
+    }
+
+    public void ToggleValueChanged(Toggle isOn)
+    {
+        _isAutoPress = isOn;
+    }
+
+    public void OnStartDrag()
+    {
+        SetIsPossessed(false, null);
+    }
+
+    public void OnEndDrag()
+    {
+        LocateAtTileCenter();
+        ChaseBall();
+    }
+
+    private void LocateAtTileCenter()
+    {
+        transform.position = _gridManager.GetCellCenterWorld(_gridManager.WorldToCell(transform.position));
+    }
+}
