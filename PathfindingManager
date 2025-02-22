@@ -1,0 +1,119 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace GridSystem
+{
+
+    public class PathfindingManager : MonoBehaviour
+    {
+        //Singleton
+        public static PathfindingManager Instance { get; private set; }
+
+        //used classes
+        private GridManager _gridManager => GridManager.Instance;
+
+        //private fields
+        private const int _movementCost = 1;
+
+        private void Awake()
+        {
+            if (Instance == null)
+            {
+                Instance = this;
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
+        }
+
+        public List<Vector3Int> FindPath(Vector3Int start, Vector3Int goal)
+        {
+            if (start == goal)
+            {
+                Debug.Log("Start and goal are the same.");
+                return new List<Vector3Int> { start };
+            }
+
+            var openSet = new PriorityQueue<Vector3Int>();
+            var cameFrom = new Dictionary<Vector3Int, Vector3Int>();
+            var gScore = new Dictionary<Vector3Int, int>();
+            var fScore = new Dictionary<Vector3Int, int>();
+
+            openSet.Enqueue(start, 0);
+            gScore[start] = 0;
+            fScore[start] = CalculateHeuristic(start, goal);
+
+            Debug.Log($"Starting pathfinding from {start} to {goal}. Initial FScore: {fScore[start]}");
+
+            while (openSet.Count > 0)
+            {
+                Vector3Int current = openSet.Dequeue();
+
+                if(current == goal)
+                {
+                    return ReconstructPath(cameFrom, current);
+                }
+
+                // Get cached neighbors for the current tile
+                List<Vector3Int> neighbors = _gridManager.GetNeighbors(current);
+
+                foreach(var neighbor in neighbors)
+                {
+                    // Check if the neighbor is walkable
+                    if (!_gridManager.IsTileWalkable(neighbor))
+                    {
+                        //Debug.Log($"Neighbor {neighbor} is not walkable. Skipping.");
+                        continue;
+                    }
+
+                    // Calculate tentative G score
+                    int tentativeGScore = gScore[current] + _movementCost;
+
+                    // Update the path if this route is better
+                    if(!gScore.ContainsKey(neighbor) || tentativeGScore < gScore[neighbor])
+                    {
+                        cameFrom[neighbor] = current;
+                        gScore[neighbor] = tentativeGScore;
+                        fScore[neighbor] = tentativeGScore + CalculateHeuristic(neighbor, goal);
+
+                        if(!openSet.Contains(neighbor))
+                        {
+                            openSet.Enqueue(neighbor, fScore[neighbor]);
+                        }
+                    }
+                }
+            }
+
+            Debug.LogWarning("No path found.");
+            return null; // No path found
+        }
+
+        private int CalculateHeuristic(Vector3Int a, Vector3Int b)
+        {   
+            //Hexagonal distance formula
+            int dx = Mathf.Abs(a.x - b.x);
+            int dy = Mathf.Abs(a.y - b.y);
+            int heuristic = Mathf.Max(dx, dy);
+
+            //int heuristic = Mathf.Max(dx, dy) + Mathf.Min(dx, dy) / 2;
+
+            //Debug.Log($"Heuristic from {a} to {b}: {heuristic}");
+            return heuristic;
+        }
+
+        private List<Vector3Int> ReconstructPath(Dictionary<Vector3Int, Vector3Int> cameFrom, Vector3Int current)
+        {
+            List<Vector3Int> path = new() { current };
+
+            while(cameFrom.ContainsKey(current))
+            {
+                current = cameFrom[current];
+                path.Insert(0, current);
+            }
+
+            Debug.Log($"Reconstructed path: {string.Join(" -> ", path)}");
+            return path;
+        }
+    }
+}
